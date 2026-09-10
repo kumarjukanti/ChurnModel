@@ -1,0 +1,49 @@
+name: ChurnModel Pipeline
+
+on:
+  push:
+    branches: [cicd]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-west-1
+  S3_BUCKET: churnmodel-rj-bucket
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Generate dataset
+        run: |
+          python generate_data.py
+
+      - name: Train model
+        run: |
+          python train.py
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push model to S3
+        run: |
+          aws s3 cp models/churn_model.pkl \
+            s3://${S3_BUCKET}/model/churn_model.pkl
+
+          echo "Model pushed to S3 successfully"
